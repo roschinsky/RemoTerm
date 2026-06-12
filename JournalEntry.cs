@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Serialization;
 
 namespace TRoschinsky.Common;
 
@@ -13,6 +14,7 @@ public class JournalEntry
     public DateTime TimeStamp { get { return timeStamp; } }
     public string Message { get; private set; }
     public string Origin { get; private set; } = String.Empty;
+     [JsonIgnore]
     public Exception? Error { get; private set; }
     public bool IsWarning { get; private set; }
 

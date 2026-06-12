@@ -4,22 +4,23 @@ using TRoschinsky.Common;
 
 namespace RemoTerm;
 
-public class ProcessAction
+public class ActionProcessor
 {
     private ActionConfig config { get; set; }
     public List<JournalEntry> Log { get; set; } = [];
 
-    public ProcessAction(ActionConfig config)
+    public ActionProcessor(ActionConfig config)
     {
         this.config = config;
-        Processing();
+        ProcessAction();
     }
 
-    private void Processing()
+    private void ProcessAction()
     {
         switch(config.ActionType)
         {
             case ActionType.Check:
+            Check();
             break;
 
             case ActionType.Terminate:
@@ -31,11 +32,40 @@ public class ProcessAction
             break;
 
             case ActionType.Message:
+            Message();
             break;
 
             case ActionType.Unknown:
             default:
             break;
+        }
+    }
+
+    private void Message()
+    {
+        try
+        {
+            string[] parts = config.Payload.Split('|');
+            string title = parts.Length > 1 ? parts[0] : "RemoTerm Message";
+            string message = parts.Length > 1 ? parts[1] : config.Payload;
+            MessageBoxIcon messageType = parts.Length > 2 ? Enum.Parse<MessageBoxIcon>(parts[2]) : MessageBoxIcon.Information;
+            MessageBox.Show(message, title, MessageBoxButtons.OK, messageType);
+        }
+        catch (Exception ex)
+        {
+            Log.Add(new JournalEntry($"A message-action failed: {ex.Message}", ex));
+        }
+    }
+
+    private void Check()
+    {
+        try
+        {
+            throw new NotImplementedException("Check action is not implemented yet.");
+        }
+        catch (Exception ex)
+        {
+            Log.Add(new JournalEntry($"A check-action failed: {ex.Message}", ex));
         }
     }
 
@@ -80,7 +110,7 @@ public class ProcessAction
         }
         catch (Exception ex)
         {
-            Log.Add(new JournalEntry($"An error occurred: {ex.Message}", ex));
+            Log.Add(new JournalEntry($"An execute-action failed: {ex.Message}", ex));
         }
     }
 }

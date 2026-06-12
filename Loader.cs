@@ -1,128 +1,82 @@
 using System;
 using System.Diagnostics;
-using System.Xml.Linq;
 using TRoschinsky.Common;
 
 namespace RemoTerm;
 
 public class Loader : Form
 {
-    private string configHost = "10.0.27.20";
-    private string configId = "17031";
+    private string configHost = "10.0.27.21:1880";
+    private string configId = "1";
     private bool onlyInLockedMode = false;
     private bool isLockedMode = false;
     private bool isDebug = false;
+
+    
+
     private RichTextBox? richtextLog;
-    private readonly List<ActionConfig> actions = [];
+    private HttpClient? client;
+    private Config? config;
     private readonly List<JournalEntry> log = [];
 
 
     public Loader(string[] args)
     {
-
+        try
+        {
 #if DEBUG
-        isDebug = true;
+            isDebug = true;
+            configId = "42";
 #endif
 
-        if (args != null && args.Length > 0)
-        {
-            for (int i = 0; i < args.Length; i++)
+            if (args != null && args.Length > 0)
             {
-                switch (args[i].Trim().ToLower())
+                for (int i = 0; i < args.Length; i++)
                 {
-                    case "-h":
-                    case "--config-host":
-                        configHost = args[i + 1];
-                        break;
-                    case "-i":
-                    case "--config-id":
-                        configId = args[i + 1];
-                        break;
-                    case "-l":
-                    case "--operate-locked":
-                        onlyInLockedMode = true;
-                        break;
-                    case "-d":
-                    case "--debug":
-                        isDebug = true;
-                        break;
+                    switch (args[i].Trim().ToLower())
+                    {
+                        case "-h":
+                        case "--config-host":
+                            configHost = args[i + 1];
+                            break;
+                        case "-i":
+                        case "--config-id":
+                            configId = args[i + 1];
+                            break;
+                        case "-l":
+                        case "--operate-locked":
+                            onlyInLockedMode = true;
+                            break;
+                        case "-d":
+                        case "--debug":
+                            isDebug = true;
+                            break;
+                    }
                 }
             }
-        }
 
-        InitializeComponent();
-        GetLockedModeStatus();
-        GetConfig();
-        ProcessActions();
-        Printlog();
+            InitializeComponent();
+            GetLockedModeStatus();
+            GetConfig();
+            ProcessActions();
+            SendLog();
 
-        if (!isDebug)
-        {
-            Close();
-            Application.Exit();
-        }
-    }
-
-    private void GetLockedModeStatus()
-    {
-        try
-        {
-            Process[] processes = Process.GetProcessesByName("LockApp");
-            isLockedMode = processes.Length > 0 && processes[0].Threads[0].ThreadState == System.Diagnostics.ThreadState.Running;
-            log.Add(new JournalEntry($"Locked mode status: {(isLockedMode ? "Locked" : "Unlocked")}"));
-        }
-        catch (Exception ex)
-        {
-            log.Add(new JournalEntry($"An error occurred while checking locked mode status: {ex.Message}", ex));
-        }
-    }
-
-    private void GetConfig()
-    {
-        try
-        {
-            HttpClient client = new HttpClient();
-            string url = $"http://{configHost}/addons/xmlapi/sysvar.cgi?ise_id={configId}";
-            HttpResponseMessage response = client.GetAsync(url).Result;
-            if (response.IsSuccessStatusCode)
+            if (isDebug)
             {
-                string xml = response.Content.ReadAsStringAsync().Result;
-                log.Add(new JournalEntry($"Received config: {xml}"));
-
-                XDocument doc = XDocument.Parse(xml);
-                if (doc != null && doc.Descendants("systemVariable").FirstOrDefault() != null)
-                {
-                    string configValue = doc.Descendants("systemVariable").First().Attribute("value")?.Value ?? String.Empty;
-                    log.Add(new JournalEntry($"Parsed config value: {configValue}"));
-
-                    if (!string.IsNullOrEmpty(configValue))
-                    {
-                        string[] actionConfigValues = configValue.Split(';', StringSplitOptions.RemoveEmptyEntries);
-                        foreach (string action in actionConfigValues)
-                        {
-                            ActionConfig actionConfig = new()
-                            {
-                                ActionType = ActionType.Terminate,
-                                Title = "Terminate Process",
-                                Payload = action.Trim()
-                            };
-                            actions.Add(actionConfig);
-                        }
-                    }
-                    else
-                    {
-                        log.Add(new JournalEntry("Config value is empty."));
-                    }
-                }
+                PrintLog();
+                Focus();
+                BringToFront();
             }
             else
             {
-                log.Add(new JournalEntry($"Failed to retrieve config. Status code: {response.StatusCode}", true));
+                Environment.ExitCode = 0;
+                Close();
+                Application.Exit();
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            log.Add(new JournalEntry($"An error occurred while retrieving config: {ex.Message}", ex));
+            Environment.ExitCode = 9;
         }
     }
 
@@ -134,7 +88,19 @@ public class Loader : Form
             return;
         }
 
-        foreach (ActionConfig action in actions)
+        if(config == null)
+        {
+            log.Add(new JournalEntry("Config is null, no actions to process."));
+            return;
+        }
+        
+        if(config.Actions.Count == 0)
+        {
+            log.Add(new JournalEntry("Config is empty, no actions to process."));
+            return;
+        }
+
+        foreach (ActionConfig action in config.Actions)
         {
             try
             {
@@ -149,7 +115,74 @@ public class Loader : Form
         }
     }
 
-    private void Printlog()
+    private void GetLockedModeStatus()
+    {
+        try
+        {
+            Process[] processes = Process.GetProcessesByName("LogonUI");
+            isLockedMode = processes.Length > 0; // && processes[0].Threads[0].ThreadState == System.Diagnostics.ThreadState.Running;
+            log.Add(new JournalEntry($"Locked mode status: {(isLockedMode ? "Locked" : "Unlocked")}"));
+        }
+        catch (Exception ex)
+        {
+            log.Add(new JournalEntry($"An error occurred while checking locked mode status: {ex.Message}", ex));
+        }
+    }
+
+    private void GetConfig()
+    {
+        try
+        {
+            client = new HttpClient();
+            string url = $"http://{configHost}/api/remoterm?id={configId}";
+            HttpResponseMessage response = client.GetAsync(url).Result;
+            if (response.IsSuccessStatusCode)
+            {
+                string json = response.Content.ReadAsStringAsync().Result;
+                log.Add(new JournalEntry($"Received config #{configId} successfully!"));
+                config = System.Text.Json.JsonSerializer.Deserialize<Config>(json) ?? new Config();
+                onlyInLockedMode = config.OnlyInLockedMode;
+            }
+            else
+            {
+                log.Add(new JournalEntry($"Failed to retrieve config #{configId}. Status code: {response.StatusCode}", true));
+            }
+        }
+        catch (Exception ex)
+        {
+            log.Add(new JournalEntry($"An error occurred while retrieving config: {ex.Message}", ex));
+        }
+        finally
+        {
+            client?.Dispose();
+        }
+    }
+
+    private void SendLog()
+    {
+        try
+        {
+            HttpClient client = new HttpClient();
+            string url = $"http://{configHost}/api/remoterm?id={configId}";
+            string json = System.Text.Json.JsonSerializer.Serialize(log);
+            StringContent content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            HttpResponseMessage response = client.PostAsync(url, content).Result;
+            if (!response.IsSuccessStatusCode)
+            {
+                log.Add(new JournalEntry($"Failed to send log. Status code: {response.StatusCode}", true));
+            }
+        }
+        catch (Exception ex)
+        {
+            log.Add(new JournalEntry($"An error occurred while sending log: {ex.Message}", ex));
+        }
+        finally
+        {
+            client?.Dispose();
+        }
+    }
+
+    private void PrintLog()
     {
         if (richtextLog != null)
         {
