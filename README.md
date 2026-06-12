@@ -4,7 +4,7 @@ Lets say _RemoteRM_ could refer to something like "Remote Runtime Manager" or _R
 
 If you have one or more (primarily Windows-based) systems and want to run simple tasks repeatedly while you're away from your computer, _RemoteRM_ might be a good option for you.  
 
-Just think of it as a minimalist, centralized way to perform a series of actions on one or more systems—either automatically or while someone is sitting right in front of them.  
+Just think of it as a minimalist, centralized way to perform a series of actions on one or more systems - either automatically or while someone is sitting right in front of them.  
 
 I use it purely for convenience, so feel free to adopt it if you like.  
 
