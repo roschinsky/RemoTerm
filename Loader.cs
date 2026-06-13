@@ -1,4 +1,3 @@
-using System;
 using System.Diagnostics;
 using TRoschinsky.Common;
 
@@ -12,8 +11,6 @@ public class Loader : Form
     private bool isLockedMode = false;
     private bool isDebug = false;
 
-    
-
     private RichTextBox? richtextLog;
     private HttpClient? client;
     private Config? config;
@@ -26,7 +23,7 @@ public class Loader : Form
         {
 #if DEBUG
             isDebug = true;
-            configId = "1";
+            configId = "42";
 #endif
 
             if (args != null && args.Length > 0)
@@ -59,9 +56,9 @@ public class Loader : Form
             GetLockedModeStatus();
             bool proceed = GetConfig();
 
-            if(proceed)
+            if (proceed)
             {
-                if(config?.Delay > TimeSpan.Zero)
+                if (config?.Delay > TimeSpan.Zero)
                 {
                     log.Add(new JournalEntry($"Delaying actions by {config.Delay.TotalSeconds} seconds."));
                     Thread.Sleep(config.Delay);
@@ -70,9 +67,9 @@ public class Loader : Form
             }
             else
             {
-                log.Add(new JournalEntry("Failed to retrieve config, skipping actions."));
+                log.Add(new JournalEntry("Skipping actions: no valid config available."));
             }
-            
+
             // After processing actions, we want to send the log back to the server for review and debugging.
             SendLog();
 
@@ -104,13 +101,13 @@ public class Loader : Form
             return;
         }
 
-        if(config == null)
+        if (config == null)
         {
             log.Add(new JournalEntry("Config is null, no actions to process."));
             return;
         }
-        
-        if(config.Actions.Count == 0)
+
+        if (config.Actions.Count == 0)
         {
             log.Add(new JournalEntry("Config is empty, no actions to process."));
             return;

@@ -22,6 +22,9 @@ public class ActionConfig
 
     private ActionType GetActionTypeFromString(string actionType)
     {
+        if(string.IsNullOrEmpty(actionType))
+            return ActionType.Unknown;
+
         return actionType.ToLower() switch
         {
             "terminate" => ActionType.Terminate,
