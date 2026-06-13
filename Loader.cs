@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using TRoschinsky.Common;
 
-namespace RemoTerm;
+namespace TRoschinsky.RemoTerm;
 
 public class Loader : Form
 {

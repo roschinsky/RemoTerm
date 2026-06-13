@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace RemoTerm;
+namespace TRoschinsky.RemoTerm;
 
 public class Config
 {
