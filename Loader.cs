@@ -26,7 +26,7 @@ public class Loader : Form
         {
 #if DEBUG
             isDebug = true;
-            configId = "2";
+            configId = "1";
 #endif
 
             if (args != null && args.Length > 0)
@@ -57,10 +57,26 @@ public class Loader : Form
 
             InitializeComponent();
             GetLockedModeStatus();
-            GetConfig();
-            ProcessActions();
+            bool proceed = GetConfig();
+
+            if(proceed)
+            {
+                if(config?.Delay > TimeSpan.Zero)
+                {
+                    log.Add(new JournalEntry($"Delaying actions by {config.Delay.TotalSeconds} seconds."));
+                    Thread.Sleep(config.Delay);
+                }
+                ProcessActions();
+            }
+            else
+            {
+                log.Add(new JournalEntry("Failed to retrieve config, skipping actions."));
+            }
+            
+            // After processing actions, we want to send the log back to the server for review and debugging.
             SendLog();
 
+            // In debug mode, we want to see the log and keep the application open. Otherwise, we can just exit.
             if (isDebug)
             {
                 PrintLog();
@@ -129,8 +145,9 @@ public class Loader : Form
         }
     }
 
-    private void GetConfig()
+    private bool GetConfig()
     {
+        bool configRetrieved = false;
         try
         {
             client = new HttpClient();
@@ -142,6 +159,7 @@ public class Loader : Form
                 config = System.Text.Json.JsonSerializer.Deserialize<Config>(json) ?? new Config();
                 onlyInLockedMode = config.OnlyInLockedMode;
                 log.Add(new JournalEntry($"Retrieved config data #{configId} successfully!"));
+                configRetrieved = true;
             }
             else
             {
@@ -156,6 +174,7 @@ public class Loader : Form
         {
             client?.Dispose();
         }
+        return configRetrieved;
     }
 
     private void SendLog()

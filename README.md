@@ -34,6 +34,7 @@ Is provided via API somewhere in your environment. The expected format looks lik
 {
   "id": "2",
   "onlyInLockedMode": true,
+  "config.delayActionsBy" = "random120";
   "actions": [
     {
       "type": "Terminate",
