@@ -26,7 +26,7 @@ public class Loader : Form
         {
 #if DEBUG
             isDebug = true;
-            configId = "42";
+            configId = "2";
 #endif
 
             if (args != null && args.Length > 0)
@@ -139,18 +139,18 @@ public class Loader : Form
             if (response.IsSuccessStatusCode)
             {
                 string json = response.Content.ReadAsStringAsync().Result;
-                log.Add(new JournalEntry($"Received config #{configId} successfully!"));
                 config = System.Text.Json.JsonSerializer.Deserialize<Config>(json) ?? new Config();
                 onlyInLockedMode = config.OnlyInLockedMode;
+                log.Add(new JournalEntry($"Retrieved config data #{configId} successfully!"));
             }
             else
             {
-                log.Add(new JournalEntry($"Failed to retrieve config #{configId}. Status code: {response.StatusCode}", true));
+                log.Add(new JournalEntry($"Failed to retrieve config data #{configId} with status: {response.StatusCode}", true));
             }
         }
         catch (Exception ex)
         {
-            log.Add(new JournalEntry($"An error occurred while retrieving config: {ex.Message}", ex));
+            log.Add(new JournalEntry($"An error occurred while processing config #{configId}: {ex.Message}", ex));
         }
         finally
         {
