@@ -18,7 +18,9 @@ Set it up as it fits your needs.
 Once executed, _RemoteRM_ will proceed with these steps:
 
 1. Try to get the configuration from API as `HTTP GET`
-2. Run every action
+2. Run every action, ...
+    1. after given delay, if configured
+    2. if condition matches, if configured (like "only in onlyInLockedMode && screen is locked out)
 3. Try to send back the execution log to the API as `HTTP POST`
 4. Exit _(if not in debug mode)_
 
@@ -34,7 +36,7 @@ Is provided via API somewhere in your environment. The expected format looks lik
 {
   "id": "2",
   "onlyInLockedMode": true,
-  "config.delayActionsBy" = "random120";
+  "delayActionsBy": "random120";
   "actions": [
     {
       "type": "Terminate",
