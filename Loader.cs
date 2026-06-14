@@ -8,7 +8,6 @@ public class Loader : Form
     private string configHost = "10.0.27.21:1880";
     private string configId = "1";
     private bool onlyInLockedMode = false;
-    private bool isLockedMode = false;
     private bool isDebug = false;
 
     private RichTextBox? richtextLog;
@@ -53,17 +52,31 @@ public class Loader : Form
             }
 
             InitializeComponent();
-            GetLockedModeStatus();
             bool proceed = GetConfig();
 
             if (proceed)
             {
-                if (config?.Delay > TimeSpan.Zero)
+                if (onlyInLockedMode && !GetLockedModeStatus())
+                {
+                    log.Add(new JournalEntry("Skipping actions: 1st check - not in locked mode."));
+                }
+                else if (config?.Delay > TimeSpan.Zero)
                 {
                     log.Add(new JournalEntry($"Delaying actions by {config.Delay.TotalSeconds} seconds."));
                     Thread.Sleep(config.Delay);
+                    if (onlyInLockedMode && !GetLockedModeStatus())
+                    {
+                        log.Add(new JournalEntry("Skipping actions: 2nd check - not in locked mode."));
+                    }
+                    else
+                    {
+                        ProcessActions();
+                    }
                 }
-                ProcessActions();
+                else
+                {
+                    ProcessActions();
+                }
             }
             else
             {
@@ -95,12 +108,6 @@ public class Loader : Form
 
     private void ProcessActions()
     {
-        if (onlyInLockedMode && !isLockedMode)
-        {
-            log.Add(new JournalEntry("Skipping actions: not in locked mode."));
-            return;
-        }
-
         if (config == null)
         {
             log.Add(new JournalEntry("Config is null, no actions to process."));
@@ -128,8 +135,9 @@ public class Loader : Form
         }
     }
 
-    private void GetLockedModeStatus()
+    private bool GetLockedModeStatus()
     {
+        bool isLockedMode = false;
         try
         {
             Process[] processes = Process.GetProcessesByName("LogonUI");
@@ -140,6 +148,7 @@ public class Loader : Form
         {
             log.Add(new JournalEntry($"An error occurred while checking locked mode status: {ex.Message}", ex));
         }
+        return isLockedMode;
     }
 
     private bool GetConfig()
