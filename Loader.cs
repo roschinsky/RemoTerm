@@ -52,6 +52,7 @@ public class Loader : Form
             }
 
             InitializeComponent();
+            GetBasicRuntimeInfo();
             bool proceed = GetConfig();
 
             if (proceed)
@@ -142,7 +143,7 @@ public class Loader : Form
         {
             Process[] processes = Process.GetProcessesByName("LogonUI");
             isLockedMode = processes.Length > 0; // && processes[0].Threads[0].ThreadState == System.Diagnostics.ThreadState.Running;
-            log.Add(new JournalEntry($"Locked mode status: {(isLockedMode ? "Locked" : "Unlocked")}"));
+            if(isDebug) { log.Add(new JournalEntry($"Locked mode status: {(isLockedMode ? "Locked" : "Unlocked")}")); }
         }
         catch (Exception ex)
         {
@@ -253,5 +254,18 @@ public class Loader : Form
 
         ResumeLayout(false);
         PerformLayout();
+    }
+
+    private void GetBasicRuntimeInfo()
+    {
+        try
+        {
+            log.Add(new JournalEntry($"Running on machine '{Environment.MachineName}' as {Environment.UserName}."));
+            log.Add(new JournalEntry($"Current directory: {Environment.CurrentDirectory}"));
+        }
+        catch (Exception ex)
+        {
+            log.Add(new JournalEntry($"An error occurred while getting basic runtime info: {ex.Message}", ex));
+        }
     }
 }
