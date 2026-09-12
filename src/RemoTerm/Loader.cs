@@ -5,7 +5,8 @@ namespace TRoschinsky.RemoTerm;
 
 public class Loader : Form
 {
-    private string configHost = "10.0.27.21:1880";
+    private string configHost = "localhost:5048";
+    private string apiPath = "/api/remoterm";
     private string configId = "1";
     private bool onlyInLockedMode = false;
     private bool isDebug = false;
@@ -158,7 +159,7 @@ public class Loader : Form
         try
         {
             client = new HttpClient();
-            string url = $"http://{configHost}/api/remoterm?id={configId}";
+            string url = $"http://{configHost}{apiPath}/{configId}";
             HttpResponseMessage response = client.GetAsync(url).Result;
             if (response.IsSuccessStatusCode)
             {
@@ -189,7 +190,7 @@ public class Loader : Form
         try
         {
             HttpClient client = new HttpClient();
-            string url = $"http://{configHost}/api/remoterm?id={configId}";
+            string url = $"http://{configHost}{apiPath}?id={configId}";
             string json = System.Text.Json.JsonSerializer.Serialize(log);
             StringContent content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
             HttpResponseMessage response = client.PostAsync(url, content).Result;

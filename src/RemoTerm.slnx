@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="RemoTerm/RemoTerm.csproj" />
+  <Project Path="RemoTermAPI/RemoTermAPI.csproj" />
+</Solution>
