@@ -1,0 +1,6 @@
+@RemoTermAPI_HostAddress = http://localhost:5048
+
+GET {{RemoTermAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
