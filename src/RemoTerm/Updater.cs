@@ -35,7 +35,8 @@ public class Updater
             string url = $"https://api.github.com/repos/roschinsky/RemoTerm/releases/latest";
             var release = await httpClient.GetFromJsonAsync<GitHubRelease>(url);
 
-            if (release == null || string.IsNullOrEmpty(release.TagName)) {
+            if (release == null || string.IsNullOrEmpty(release.TagName))
+            {
                 Console.WriteLine("No release information found.");
                 return;
             }
@@ -59,26 +60,28 @@ public class Updater
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Update failed: {ex.Message}");
+            Console.WriteLine($"Retrieval of update failed: {ex.Message}");
         }
     }
 
     private void ApplyZipUpdateAndRestart(string zipPath, string exeToRun)
     {
-        string currentAppDir = AppContext.BaseDirectory;
-        string tempExtractDir = Path.Combine(Path.GetTempPath(), "RtUpd");
+        try
+        {
+            string currentAppDir = AppContext.BaseDirectory;
+            string tempExtractDir = Path.Combine(Path.GetTempPath(), "RtUpd");
 
-        // Clean old extraction directory if it exists
-        if (Directory.Exists(tempExtractDir)) Directory.Delete(tempExtractDir, true);
+            // Clean old extraction directory if it exists
+            if (Directory.Exists(tempExtractDir)) Directory.Delete(tempExtractDir, true);
 
-        // Extract the downloaded zip to a temporary folder
-        ZipFile.ExtractToDirectory(zipPath, tempExtractDir);
+            // Extract the downloaded zip to a temporary folder
+            ZipFile.ExtractToDirectory(zipPath, tempExtractDir);
 
-        // Generate a temporary batch file to handle the file swapping while this app closes
-        string scriptPath = Path.Combine(Path.GetTempPath(), "RtUpdApply.bat");
-        string launchInstaller = runInstallerOnUpdate ? $"start \"\" \"{Path.Combine(currentAppDir, exeToRun)}\" -i" : string.Empty;
+            // Generate a temporary batch file to handle the file swapping while this app closes
+            string scriptPath = Path.Combine(Path.GetTempPath(), "RtUpdApply.bat");
+            string launchInstaller = runInstallerOnUpdate ? $"start \"\" \"{Path.Combine(currentAppDir, exeToRun)}\" -i" : string.Empty;
 
-        string batchScript = $@"@echo off
+            string batchScript = $@"@echo off
 timeout /t 5 /nobreak > nul
 xcopy ""{tempExtractDir}\*"" ""{currentAppDir}"" /s /e /y /q
 {launchInstaller}
@@ -87,21 +90,26 @@ del ""{zipPath}""
 del ""%~f0""
 ";
 
-        File.WriteAllText(scriptPath, batchScript);
+            File.WriteAllText(scriptPath, batchScript);
 
-        // 3. Launch the batch script silently in the background
-        ProcessStartInfo startInfo = new()
+            // 3. Launch the batch script silently in the background
+            ProcessStartInfo startInfo = new()
+            {
+                FileName = "cmd.exe",
+                Arguments = $"/c \"{scriptPath}\"",
+                CreateNoWindow = true,
+                UseShellExecute = false
+            };
+
+            Process.Start(startInfo);
+
+            // 4. Immediately kill the main app so xcopy doesn't hit a "File in Use" exception
+            Environment.Exit(0);
+        }
+        catch (Exception ex)
         {
-            FileName = "cmd.exe",
-            Arguments = $"/c \"{scriptPath}\"",
-            CreateNoWindow = true,
-            UseShellExecute = false
-        };
-
-        Process.Start(startInfo);
-
-        // 4. Immediately kill the main app so xcopy doesn't hit a "File in Use" exception
-        Environment.Exit(0);
+            Console.WriteLine($"Initializing update failed: {ex.Message}");
+        }
     }
 }
 
