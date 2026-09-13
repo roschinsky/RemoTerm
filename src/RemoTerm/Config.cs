@@ -6,6 +6,10 @@ public class Config
 {
     [JsonPropertyName("id")]
     public string Id { get; set; } = String.Empty;
+    [JsonPropertyName("update")]
+    public bool Update { get; set; } = false;
+    [JsonPropertyName("update-install")]
+    public bool UpdateInstall { get; set; } = false;
     [JsonPropertyName("onlyInLockedMode")]
     public bool OnlyInLockedMode { get; set; } = false;
     [JsonPropertyName("delayActionsBy")]

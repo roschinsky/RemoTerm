@@ -24,6 +24,7 @@ public class Loader : Form
 #if DEBUG
             isDebug = true;
             configId = "42";
+            args = ["-u"];
 #endif
 
             if (args != null && args.Length > 0)
@@ -36,7 +37,7 @@ public class Loader : Form
                         case "--config-host":
                             configHost = args[i + 1];
                             break;
-                        case "-i":
+                        case "-c":
                         case "--config-id":
                             configId = args[i + 1];
                             break;
@@ -48,6 +49,15 @@ public class Loader : Form
                         case "--debug":
                             isDebug = true;
                             break;
+                        case "-u":
+                        case "--update":
+                            new Updater();
+                            break;
+                        case "-i":
+                        case "--install":
+                            new Installer();
+                            Environment.Exit(0);
+                            break;
                     }
                 }
             }
@@ -58,6 +68,11 @@ public class Loader : Form
 
             if (proceed)
             {
+                if(config != null && config.Update)
+                {
+                    new Updater(true, config.UpdateInstall);
+                }
+
                 if (onlyInLockedMode && !GetLockedModeStatus())
                 {
                     log.Add(new JournalEntry("Skipping actions: 1st check - not in locked mode."));
