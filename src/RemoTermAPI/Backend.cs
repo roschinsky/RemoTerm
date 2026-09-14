@@ -2,7 +2,7 @@ using TRoschinsky.RemoTerm;
 
 namespace TRoschinsky.RemoTerm.Api;
 
-public partial class Program
+public partial class Backend
 {
     private static void Main(string[] args)
     {

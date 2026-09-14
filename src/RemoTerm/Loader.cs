@@ -24,7 +24,7 @@ public class Loader : Form
 #if DEBUG
             isDebug = true;
             configId = "42";
-            args = ["-u"];
+            configHost = "localhost:5048";
 #endif
 
             if (args != null && args.Length > 0)
