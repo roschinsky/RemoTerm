@@ -9,7 +9,7 @@ RUN cd /App/RemoTermAPI && \
     dotnet build -c Release -o out
 
 # Build runtime image
-FROM mcr.microsoft.com/dotnet/runtime:10.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /App
 COPY --from=build /App/RemoTermAPI/out .
 ENTRYPOINT ["dotnet", "RemoTermAPI.dll"]
