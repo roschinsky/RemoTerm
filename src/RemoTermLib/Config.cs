@@ -5,7 +5,7 @@ namespace TRoschinsky.RemoTerm;
 public class Config
 {
     [JsonPropertyName("id")]
-    public string Id { get; set; } = String.Empty;
+    public required string Id { get; set; }
     [JsonPropertyName("update")]
     public bool Update { get; set; } = false;
     [JsonPropertyName("update-install")]

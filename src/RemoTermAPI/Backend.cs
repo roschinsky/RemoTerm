@@ -6,7 +6,7 @@ namespace TRoschinsky.RemoTerm.Api;
 public partial class Backend
 {
     private static List<Config> configurations = [];
-    private static Dictionary<string, Dictionary<DateTime, List<JournalEntry>>> logs = [];
+    private static Dictionary<string, Dictionary<DateTime, List<LogEntry>>> logs = [];
 
     private static void Main(string[] args)
     {
@@ -47,14 +47,13 @@ public partial class Backend
         })
         .WithName("GetRemoTermConfig");
 
-
         app.MapGet("/api/configs", () =>
         {
             return Results.Ok(configurations.Where(c => c.IsPublic));
         })
         .WithName("GetRemoTermConfigs");
 
-        app.MapPost("/api/configs/{id}", async (string id, HttpRequest req, Stream body) =>
+        app.MapPost("/api/configs/{id}", async (string id, Config config) =>
         {
             if (string.IsNullOrEmpty(id))
             {
@@ -68,10 +67,14 @@ public partial class Backend
                     return Results.Conflict($"Config #{id} already existing - delete it first or use a different id");
                 }
 
-                var config = body.Length > 0 ? await JsonSerializer.DeserializeAsync<Config>(body) : null;
+                //var config = body.Length > 0 ? await JsonSerializer.DeserializeAsync<Config>(body) : null;
                 if (config == null)
                 {
-                    return Results.BadRequest("Invalid config data");
+                    return Results.Conflict("Invalid config data");
+                }
+                else if (config.Id != id)
+                {
+                    return Results.Conflict($"Config #'{config.Id}' does not match the id in the URL '{id}'");
                 }
                 else
                 {
@@ -135,7 +138,7 @@ public partial class Backend
         .WithName("GetRemoTermExecutionLog");
 
 
-        app.MapPost("/api/logs/{id}", async (string id, JournalEntry[] log) =>
+        app.MapPost("/api/logs/{id}", async (string id, LogEntry[] log) =>
         {
             if (string.IsNullOrEmpty(id))
             {
