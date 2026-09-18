@@ -1,11 +1,17 @@
-using TRoschinsky.RemoTerm;
+using System.Text.Json;
+using TRoschinsky.Common;
 
 namespace TRoschinsky.RemoTerm.Api;
 
 public partial class Backend
 {
+    private static List<Config> configurations = [];
+    private static Dictionary<string, Dictionary<DateTime, List<JournalEntry>>> logs = [];
+
     private static void Main(string[] args)
     {
+        configurations = GetBaseConfigs();
+
         var builder = WebApplication.CreateBuilder(args);
 
         // Add services to the container.
@@ -22,16 +28,16 @@ public partial class Backend
 
         app.UseHttpsRedirection();
 
-        var configs = GetBaseConfigs();
+        #region Configs
 
-        app.MapGet("/api/remoterm/{id}", (string id) =>
+        app.MapGet("/api/configs/{id}", (string id) =>
         {
             if (string.IsNullOrEmpty(id))
             {
                 return Results.BadRequest("Id parameter is required");
             }
 
-            var config = configs.Find(c => c.Id == id);
+            var config = configurations.Find(c => c.Id == id);
             if (config == null)
             {
                 return Results.NotFound("Config not found");
@@ -41,32 +47,133 @@ public partial class Backend
         })
         .WithName("GetRemoTermConfig");
 
-        app.MapPost("/api/remoterm", async (HttpRequest req, Stream body) =>
+
+        app.MapGet("/api/configs", () =>
         {
+            return Results.Ok(configurations.Where(c => c.IsPublic));
+        })
+        .WithName("GetRemoTermConfigs");
+
+        app.MapPost("/api/configs/{id}", async (string id, HttpRequest req, Stream body) =>
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return Results.BadRequest("Id parameter is required");
+            }
+
             try
             {
-                var log = body.Length > 0 ? await System.Text.Json.JsonSerializer.DeserializeAsync<object>(body) : null;
+                if (configurations.Any(c => c.Id == id))
+                {
+                    return Results.Conflict($"Config #{id} already existing - delete it first or use a different id");
+                }
+
+                var config = body.Length > 0 ? await JsonSerializer.DeserializeAsync<Config>(body) : null;
+                if (config == null)
+                {
+                    return Results.BadRequest("Invalid config data");
+                }
+                else
+                {
+                    configurations.Add(config);
+                }
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest($"Error processing config: {ex.Message}");
+            }
+            return Results.Created();
+        })
+        .WithName("CreateRemoTermConfig");
+
+        app.MapDelete("/api/configs/{id}", (string id) =>
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return Results.BadRequest("Id parameter is required");
+            }
+
+            var config = configurations.Find(c => c.Id == id);
+            if (config == null)
+            {
+                return Results.NotFound("Config not found");
+            }
+
+            configurations.Remove(config);
+            return Results.Accepted($"Config #{id} deleted.");
+        })
+        .WithName("DeleteRemoTermConfig");
+
+        #endregion
+
+
+        #region Logs
+
+        app.MapGet("/api/logs/{id}", (string id) =>
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return Results.BadRequest("Id parameter is required");
+            }
+
+            try
+            {
+                if (!logs.ContainsKey(id))
+                {
+                    return Results.NotFound("Logs not found");
+                }
+
+                var logsForId = logs[id];
+                return Results.Ok(logsForId);
+
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest($"Error obtaining logs for {id}: {ex.Message}");
+            }
+        })
+        .WithName("GetRemoTermExecutionLog");
+
+
+        app.MapPost("/api/logs/{id}", async (string id, JournalEntry[] log) =>
+        {
+            if (string.IsNullOrEmpty(id))
+            {
+                return Results.BadRequest("Id parameter is required");
+            }
+
+            try
+            {
+                if (!logs.ContainsKey(id))
+                {
+                    logs[id] = [];
+                }
+
+                //var log = body.Length > 0 ? await JsonSerializer.DeserializeAsync<List<JournalEntry>>(body) : null;
                 if (log == null)
                 {
                     return Results.BadRequest("Invalid log data");
                 }
                 else
                 {
-                    // Process the log data here (e.g., save to a database, write to a file, etc.)
-                    Console.WriteLine($"Received log: {System.Text.Json.JsonSerializer.Serialize(log)}");
+                    logs[id].Add(DateTime.Now, log.ToList());
                 }
-
             }
             catch (Exception ex)
             {
                 return Results.BadRequest($"Error processing log: {ex.Message}");
             }
-            return Results.Ok("Log received");
+            return Results.Ok("Log saved successfully");
         })
         .WithName("SetRemoTermExecutionLog");
 
+
+        #endregion
+
         app.Run();
     }
+
+    #region Helper Methods
 
     private static List<Config> GetBaseConfigs()
     {
@@ -81,21 +188,38 @@ public partial class Backend
             [
                 new ActionConfig()
                     {
-                        Type = "Terminate",
+                        ActionType = ActionType.Terminate,
                         Title = "end all calculations",
                         Payload = "calc"
-                    },
+                    }
+            ]
+        });
+
+        result.Add(new Config()
+        {
+            Id = "23",
+            OnlyInLockedMode = false,
+            IsPublic = false,
+            DelayString = "random10",
+            Actions =
+            [
                 new ActionConfig()
                     {
-                        Type = "Message",
-                        Title = "say hi",
-                        Payload = "Caption...|Hey buddy!|Information"
-                    },
-                new ActionConfig()
-                    {
-                        Type = "Execute",
-                        Title = "run terminal",
+                        ActionType = ActionType.Terminate,
+                        Title = "end all shells",
                         Payload = "cmd.exe"
+                    },
+                new ActionConfig()
+                    {
+                        ActionType = ActionType.Message,
+                        Title = "say hi",
+                        Payload = "Caption...|Hey buddy, how are you?|Question"
+                    },
+                new ActionConfig()
+                    {
+                        ActionType = ActionType.Execute,
+                        Title = "run a calculator",
+                        Payload = "calc.exe"
                     }
             ]
         });
@@ -104,18 +228,18 @@ public partial class Backend
         {
             Id = "42",
             OnlyInLockedMode = false,
-            DelayString = "42",
+            DelayString = "2",
             Actions =
             [
                 new ActionConfig()
                     {
-                        Type = "Terminate",
-                        Title = "end all calculations",
-                        Payload = "discord"
+                        ActionType = ActionType.Terminate,
+                        Title = "end all drawing",
+                        Payload = "mspaint"
                     },
                 new ActionConfig()
                     {
-                        Type = "Message",
+                        ActionType = ActionType.Message,
                         Title = "Show id",
                         Payload = "ID of config|#42|Information"
                     }
@@ -123,6 +247,7 @@ public partial class Backend
         });
 
         return result;
-
     }
+
+    #endregion
 }

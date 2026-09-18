@@ -23,6 +23,16 @@ public class JournalEntry
     /// Constructor for logging an INFormation
     /// </summary>
     /// <param name="message">Just the message you like to log</param>
+    public JournalEntry()
+    {
+        this.Message = "<empty>";
+        this.IsWarning = false;
+    }
+
+    /// <summary>
+    /// Constructor for logging an INFormation
+    /// </summary>
+    /// <param name="message">Just the message you like to log</param>
     public JournalEntry(string message)
     {
         this.Message = message;
