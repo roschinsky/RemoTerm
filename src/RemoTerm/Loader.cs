@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json.Serialization;
 using TRoschinsky.Common;
 
 namespace TRoschinsky.RemoTerm;
@@ -6,13 +7,15 @@ namespace TRoschinsky.RemoTerm;
 public class Loader : Form
 {
     private string configHost = "localhost:5048";
-    private string apiPath = "/api/remoterm";
+    private string apiPath = "api";
     private string configId = "1";
     private bool onlyInLockedMode = false;
     private bool isDebug = false;
+    private bool isOverrideSettings = false;
 
     private RichTextBox? richtextLog;
     private HttpClient? client;
+    private Defaults? defaults;
     private Config? config;
     private readonly List<JournalEntry> log = [];
 
@@ -22,9 +25,11 @@ public class Loader : Form
         try
         {
 #if DEBUG
-            isDebug = true;
-            configId = "42";
             configHost = "localhost:5048";
+            configId = "42";
+            isDebug = true;
+#else
+            SetDefaults();
 #endif
 
             if (args != null && args.Length > 0)
@@ -35,11 +40,11 @@ public class Loader : Form
                     {
                         case "-h":
                         case "--config-host":
-                            configHost = args[i + 1];
+                            configHost = isOverrideSettings ? configHost : args[i + 1];
                             break;
                         case "-c":
                         case "--config-id":
-                            configId = args[i + 1];
+                            configId = isOverrideSettings ? configId : args[i + 1];
                             break;
                         case "-l":
                         case "--operate-locked":
@@ -174,7 +179,7 @@ public class Loader : Form
         try
         {
             client = new HttpClient();
-            string url = $"http://{configHost}{apiPath}/{configId}";
+            string url = $"http://{configHost}/{apiPath}/configs/{configId}";
             HttpResponseMessage response = client.GetAsync(url).Result;
             if (response.IsSuccessStatusCode)
             {
@@ -205,8 +210,8 @@ public class Loader : Form
         try
         {
             HttpClient client = new HttpClient();
-            string url = $"http://{configHost}{apiPath}?id={configId}";
-            string json = System.Text.Json.JsonSerializer.Serialize(log);
+            string url = $"http://{configHost}/{apiPath}/logs/{configId}";
+            string json = System.Text.Json.JsonSerializer.Serialize(log.ToArray());
             StringContent content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
             HttpResponseMessage response = client.PostAsync(url, content).Result;
             if (!response.IsSuccessStatusCode)
@@ -284,4 +289,45 @@ public class Loader : Form
             log.Add(new JournalEntry($"An error occurred while getting basic runtime info: {ex.Message}", ex));
         }
     }
+
+    private void SetDefaults()
+    {
+        try
+        {
+            defaults = new(this.GetType().Namespace, typeof(DefaultValues));
+            if(defaults.Success)
+            {
+                DefaultValues? init = defaults.DefaultValues as DefaultValues;
+                if(init != null)
+                {
+                    configHost = string.IsNullOrWhiteSpace(init.ConfigHost) ? configHost : init.ConfigHost;
+                    apiPath = string.IsNullOrWhiteSpace(init.ApiPath) ? apiPath : init.ApiPath.Trim().Trim('/');
+                    configId = string.IsNullOrWhiteSpace(init.ConfigId) ? configId : init.ConfigId;
+                    isOverrideSettings = init.OverrideSettings;
+                }
+            }
+            else
+            {
+                log.Add(new JournalEntry(defaults.Status, true));
+            }
+        }
+        catch (Exception ex)
+        {
+            log.Add(new JournalEntry("Failed to set default values", ex));
+        }
+    }
 }
+
+public record DefaultValues
+{
+    [JsonPropertyName("configHost")]
+    public string? ConfigHost { get; init; }
+    [JsonPropertyName("configId")]
+    public string? ConfigId { get; init; }
+    [JsonPropertyName("override")]
+    public bool OverrideSettings { get; init; } = false;
+
+    [JsonPropertyName("apiPath")]
+    public string? ApiPath { get; init; }
+    
+};
