@@ -1,4 +1,4 @@
-namespace RemoTerm;
+namespace TRoschinsky.RemoTerm;
 
 static class Program
 {

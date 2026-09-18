@@ -1,4 +1,3 @@
-using System;
 using System.Text.Json.Serialization;
 
 namespace TRoschinsky.Common;
@@ -17,6 +16,7 @@ public class JournalEntry
      [JsonIgnore]
     public Exception? Error { get; private set; }
     public bool IsWarning { get; private set; }
+    public bool IsError { get { return Error != null; } }
 
     /// <summary>
     /// Constructor for logging an INFormation

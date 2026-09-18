@@ -1,8 +1,7 @@
-using System;
 using System.Diagnostics;
 using TRoschinsky.Common;
 
-namespace RemoTerm;
+namespace TRoschinsky.RemoTerm;
 
 public class ActionProcessor
 {
@@ -106,7 +105,25 @@ public class ActionProcessor
     {
         try
         {
-            Process.Start(config.Payload);
+            if(string.IsNullOrEmpty(config.Payload))
+            {
+                Log.Add(new JournalEntry("No command provided to execute."));
+                return;
+            }
+
+            Process? proc;
+            string[] parts = config.Payload.Split('|');
+            if (parts.Length > 1)
+            {
+                Log.Add(new JournalEntry("Running command with arguments."));
+                proc = Process.Start(parts[0], parts[1]);
+            }
+            else
+            {
+                proc = Process.Start(config.Payload);
+            }
+
+            Log.Add(new JournalEntry($"Launched process {proc?.ProcessName ?? "Unknown"} with PID {proc?.Id ?? 0}."));
         }
         catch (Exception ex)
         {
