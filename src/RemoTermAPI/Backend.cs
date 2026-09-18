@@ -5,12 +5,21 @@ namespace TRoschinsky.RemoTerm.Api;
 
 public partial class Backend
 {
+    private static string? apiTokenReader;
+    private static string? apiTokenWriter;
     private static List<Config> configurations = [];
     private static Dictionary<string, Dictionary<DateTime, List<LogEntry>>> logs = [];
 
     private static void Main(string[] args)
     {
         configurations = GetBaseConfigs();
+
+        try
+        {
+            apiTokenReader = string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APITokenRead")) ? string.Empty : Environment.GetEnvironmentVariable("APITokenRead")?.Trim();
+            apiTokenWriter = string.IsNullOrEmpty(Environment.GetEnvironmentVariable("APITokenWrite")) ? string.Empty : Environment.GetEnvironmentVariable("APITokenWrite")?.Trim();
+        }
+        catch (Exception) { }
 
         var builder = WebApplication.CreateBuilder(args);
 
@@ -47,14 +56,26 @@ public partial class Backend
         })
         .WithName("GetRemoTermConfig");
 
-        app.MapGet("/api/configs", () =>
+        app.MapGet("/api/configs", (HttpRequest req) =>
         {
-            return Results.Ok(configurations.Where(c => c.IsPublic));
+            if (!req.Headers.TryGetValue("Authorization", out var authHeader) || (authHeader != $"Bearer {apiTokenReader}" && authHeader != $"Bearer {apiTokenWriter}"))
+            {
+                return Results.Ok(configurations.Where(c => c.IsPublic));
+            }
+            else
+            {
+                return Results.Ok(configurations);
+            }
         })
         .WithName("GetRemoTermConfigs");
 
-        app.MapPost("/api/configs/{id}", async (string id, Config config) =>
+        app.MapPost("/api/configs/{id}", async (string id, Config config, HttpRequest req) =>
         {
+            if (!req.Headers.TryGetValue("Authorization", out var authHeader) || authHeader != $"Bearer {apiTokenWriter}")
+            {
+                return Results.Unauthorized();
+            }
+
             if (string.IsNullOrEmpty(id))
             {
                 return Results.BadRequest("Id parameter is required");
@@ -67,7 +88,6 @@ public partial class Backend
                     return Results.Conflict($"Config #{id} already existing - delete it first or use a different id");
                 }
 
-                //var config = body.Length > 0 ? await JsonSerializer.DeserializeAsync<Config>(body) : null;
                 if (config == null)
                 {
                     return Results.Conflict("Invalid config data");
@@ -89,8 +109,13 @@ public partial class Backend
         })
         .WithName("CreateRemoTermConfig");
 
-        app.MapDelete("/api/configs/{id}", (string id) =>
+        app.MapDelete("/api/configs/{id}", (string id, HttpRequest req) =>
         {
+            if (!req.Headers.TryGetValue("Authorization", out var authHeader) || authHeader != $"Bearer {apiTokenWriter}")
+            {
+                return Results.Unauthorized();
+            }
+
             if (string.IsNullOrEmpty(id))
             {
                 return Results.BadRequest("Id parameter is required");

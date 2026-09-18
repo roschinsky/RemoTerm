@@ -8,6 +8,7 @@ public class Loader : Form
 {
     private string configHost = "localhost:5048";
     private string apiPath = "api";
+    private string apiToken = string.Empty;
     private string configId = "1";
     private bool onlyInLockedMode = false;
     private bool isDebug = false;
@@ -67,6 +68,11 @@ public class Loader : Form
                         case "-i":
                         case "--install":
                             startInstaller = true;
+                            break;
+                        case "-t":
+                        case "--token":
+                            apiToken = args[i + 1];
+                            apiToken = apiToken.Trim();
                             break;
                     }
                 }
@@ -231,6 +237,10 @@ public class Loader : Form
             HttpClient client = new HttpClient();
             string url = $"http://{configHost}/{apiPath}/logs/{configId}";
             string json = System.Text.Json.JsonSerializer.Serialize(LogEntriesFromJournalEntries(log));
+            if (!string.IsNullOrEmpty(apiToken))
+            {
+                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiToken);
+            }
             StringContent content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
             HttpResponseMessage response = client.PostAsync(url, content).Result;
             if (!response.IsSuccessStatusCode)
