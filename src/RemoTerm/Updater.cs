@@ -14,6 +14,8 @@ public class Updater
     private bool runInstallerOnUpdate = false;
     private Version? currentVersion;
 
+    public string Status { get; private set; } = "Not started";
+
     public Updater(bool forceUpdate = false, bool forceInstaller = false)
     {
         httpClient = new HttpClient();
@@ -24,6 +26,7 @@ public class Updater
             runInstallerOnUpdate = forceInstaller;
             httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("RemoTerm.Updater", "1.0"));
             Task update = CheckAndApplyUpdateAsync();
+            Status = "Update initiated";
         }
         catch (Exception) { }
     }
@@ -37,7 +40,7 @@ public class Updater
 
             if (release == null || string.IsNullOrEmpty(release.TagName))
             {
-                Console.WriteLine("No release information found.");
+                Status = "No release information found; terminating update check.";
                 return;
             }
             // Normalize versions (e.g., stripping 'v' if tag is v1.0.0)
@@ -55,12 +58,13 @@ public class Updater
                 await File.WriteAllBytesAsync(tempZipPath, fileBytes);
 
                 // 2. Execute the self-overwriting update script
+                Status = $"Downloaded update {zipAsset.Name} to {tempZipPath}. Applying update...";
                 ApplyZipUpdateAndRestart(tempZipPath, "RemoTerm.exe");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Retrieval of update failed: {ex.Message}");
+            Status = $"Retrieval of update failed: {ex.Message}";
         }
     }
 
@@ -104,11 +108,12 @@ del ""%~f0""
             Process.Start(startInfo);
 
             // 4. Immediately kill the main app so xcopy doesn't hit a "File in Use" exception
+            Status = "Running update script and terminating current instance";
             Environment.Exit(0);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Initializing update failed: {ex.Message}");
+            Status = "Failed to apply update: " + ex.Message;
         }
     }
 }
