@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Text.Json.Serialization;
 using TRoschinsky.Common;
 
@@ -311,7 +312,7 @@ public class Loader : Form
         try
         {
             log.Add(new JournalEntry($"Running on machine '{Environment.MachineName}' as {Environment.UserName}."));
-            log.Add(new JournalEntry($"Current directory: {Environment.CurrentDirectory}"));
+            log.Add(new JournalEntry($"Running in directory {Environment.CurrentDirectory} with version {Assembly.GetExecutingAssembly().GetName().Version}."));
         }
         catch (Exception ex)
         {
