@@ -1,6 +1,18 @@
 @RemoTermAPI_HostAddress = http://localhost:5048
 
-GET {{RemoTermAPI_HostAddress}}/weatherforecast/
+GET {{RemoTermAPI_HostAddress}}/api/configs/
+
+###
+
+GET {{RemoTermAPI_HostAddress}}/api/configs/1
+
+###
+
+GET {{RemoTermAPI_HostAddress}}/api/logs/1
+
+###
+
+POST {{RemoTermAPI_HostAddress}}/api/logs/1
 Accept: application/json
 
 ###
