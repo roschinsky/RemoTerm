@@ -5,7 +5,13 @@ namespace TRoschinsky.RemoTerm;
 public class Config
 {
     [JsonPropertyName("id")]
-    public string Id { get; set; } = String.Empty;
+    public required string Id { get; set; }
+    [JsonPropertyName("update")]
+    public bool Update { get; set; } = false;
+    [JsonPropertyName("update-install")]
+    public bool UpdateInstall { get; set; } = false;
+    [JsonPropertyName("public")]
+    public bool IsPublic { get; set; } = true;
     [JsonPropertyName("onlyInLockedMode")]
     public bool OnlyInLockedMode { get; set; } = false;
     [JsonPropertyName("delayActionsBy")]

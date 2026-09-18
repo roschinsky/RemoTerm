@@ -1,18 +1,24 @@
 using System.Diagnostics;
+using System.Text.Json.Serialization;
 using TRoschinsky.Common;
 
 namespace TRoschinsky.RemoTerm;
 
 public class Loader : Form
 {
-    private string configHost = "10.0.27.21:1880";
+    private string configHost = "localhost:5048";
+    private string apiPath = "api";
+    private string apiToken = string.Empty;
     private string configId = "1";
     private bool onlyInLockedMode = false;
     private bool isDebug = false;
+    private bool isOverrideSettings = false;
 
     private RichTextBox? richtextLog;
     private HttpClient? client;
+    private Defaults? defaults;
     private Config? config;
+    private Updater? updater;
     private readonly List<JournalEntry> log = [];
 
 
@@ -21,10 +27,16 @@ public class Loader : Form
         try
         {
 #if DEBUG
-            isDebug = true;
+            configHost = "localhost:5048";
             configId = "42";
+            isDebug = true;
+            log.Add(new JournalEntry("Debug mode enabled by build configuration."));
+#else
+            SetDefaults();
 #endif
 
+            // Check command line arguments
+            bool startInstaller = false;
             if (args != null && args.Length > 0)
             {
                 for (int i = 0; i < args.Length; i++)
@@ -33,11 +45,11 @@ public class Loader : Form
                     {
                         case "-h":
                         case "--config-host":
-                            configHost = args[i + 1];
+                            configHost = isOverrideSettings ? configHost : args[i + 1];
                             break;
-                        case "-i":
+                        case "-c":
                         case "--config-id":
-                            configId = args[i + 1];
+                            configId = isOverrideSettings ? configId : args[i + 1];
                             break;
                         case "-l":
                         case "--operate-locked":
@@ -46,9 +58,30 @@ public class Loader : Form
                         case "-d":
                         case "--debug":
                             isDebug = true;
+                            log.Add(new JournalEntry("Debug mode enabled by command line."));
+                            break;
+                        case "-u":
+                        case "--update":
+                            updater = new Updater();
+                            log.Add(new JournalEntry($"Update triggered by command line; status: {updater.Status}"));
+                            break;
+                        case "-i":
+                        case "--install":
+                            startInstaller = true;
+                            break;
+                        case "-t":
+                        case "--token":
+                            apiToken = args[i + 1];
+                            apiToken = apiToken.Trim();
                             break;
                     }
                 }
+            }
+
+            if (startInstaller)
+            {
+                Installer installer = new Installer(configId, isDebug);
+                Environment.Exit(0);
             }
 
             InitializeComponent();
@@ -57,6 +90,14 @@ public class Loader : Form
 
             if (proceed)
             {
+                // Process update if triggered by command line or config
+                if (config != null && config.Update)
+                {
+                    updater = new Updater(true, config.UpdateInstall);
+                    log.Add(new JournalEntry($"Update triggered by config; status: {updater.Status}"));
+                }
+
+                // Process actions based on locked mode and delay settings
                 if (onlyInLockedMode && !GetLockedModeStatus())
                 {
                     log.Add(new JournalEntry("Skipping actions: 1st check - not in locked mode."));
@@ -131,7 +172,7 @@ public class Loader : Form
             }
             catch (Exception ex)
             {
-                log.Add(new JournalEntry($"An error occurred while processing action '{action}': {ex.Message}", ex));
+                log.Add(new JournalEntry($"Processing action '{action}' failed: {ex.Message}", ex));
             }
         }
     }
@@ -143,11 +184,11 @@ public class Loader : Form
         {
             Process[] processes = Process.GetProcessesByName("LogonUI");
             isLockedMode = processes.Length > 0; // && processes[0].Threads[0].ThreadState == System.Diagnostics.ThreadState.Running;
-            if(isDebug) { log.Add(new JournalEntry($"Locked mode status: {(isLockedMode ? "Locked" : "Unlocked")}")); }
+            if (isDebug) { log.Add(new JournalEntry($"Locked mode status: {(isLockedMode ? "Locked" : "Unlocked")}")); }
         }
         catch (Exception ex)
         {
-            log.Add(new JournalEntry($"An error occurred while checking locked mode status: {ex.Message}", ex));
+            log.Add(new JournalEntry($"Checking locked mode status failed: {ex.Message}", ex));
         }
         return isLockedMode;
     }
@@ -158,12 +199,17 @@ public class Loader : Form
         try
         {
             client = new HttpClient();
-            string url = $"http://{configHost}/api/remoterm?id={configId}";
+            string url = $"http://{configHost}/{apiPath}/configs/{configId}";
             HttpResponseMessage response = client.GetAsync(url).Result;
             if (response.IsSuccessStatusCode)
             {
                 string json = response.Content.ReadAsStringAsync().Result;
-                config = System.Text.Json.JsonSerializer.Deserialize<Config>(json) ?? new Config();
+                config = System.Text.Json.JsonSerializer.Deserialize<Config>(json);
+                if (config == null)
+                {
+                    log.Add(new JournalEntry($"Failed to deserialize config data #{configId}.", true));
+                    return false;
+                }
                 onlyInLockedMode = config.OnlyInLockedMode;
                 log.Add(new JournalEntry($"Retrieved config data #{configId} successfully!"));
                 configRetrieved = true;
@@ -175,7 +221,7 @@ public class Loader : Form
         }
         catch (Exception ex)
         {
-            log.Add(new JournalEntry($"An error occurred while processing config #{configId}: {ex.Message}", ex));
+            log.Add(new JournalEntry($"Processing config #{configId} failed: {ex.Message}", ex));
         }
         finally
         {
@@ -189,18 +235,22 @@ public class Loader : Form
         try
         {
             HttpClient client = new HttpClient();
-            string url = $"http://{configHost}/api/remoterm?id={configId}";
-            string json = System.Text.Json.JsonSerializer.Serialize(log);
+            string url = $"http://{configHost}/{apiPath}/logs/{configId}";
+            string json = System.Text.Json.JsonSerializer.Serialize(LogEntriesFromJournalEntries(log));
+            if (!string.IsNullOrEmpty(apiToken))
+            {
+                client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiToken);
+            }
             StringContent content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
             HttpResponseMessage response = client.PostAsync(url, content).Result;
             if (!response.IsSuccessStatusCode)
             {
-                log.Add(new JournalEntry($"Failed to send log. Status code: {response.StatusCode}", true));
+                log.Add(new JournalEntry($"Sending log failed with status code: {response.StatusCode}", true));
             }
         }
         catch (Exception ex)
         {
-            log.Add(new JournalEntry($"An error occurred while sending log: {ex.Message}", ex));
+            log.Add(new JournalEntry($"Sending log failed: {ex.Message}", ex));
         }
         finally
         {
@@ -265,7 +315,73 @@ public class Loader : Form
         }
         catch (Exception ex)
         {
-            log.Add(new JournalEntry($"An error occurred while getting basic runtime info: {ex.Message}", ex));
+            log.Add(new JournalEntry($"Getting basic runtime info failed: {ex.Message}", ex));
+        }
+    }
+
+    private void SetDefaults()
+    {
+        try
+        {
+            defaults = new(this.GetType().Namespace, typeof(DefaultValues));
+            if (defaults.Success)
+            {
+                DefaultValues? init = defaults.DefaultValues as DefaultValues;
+                if (init != null)
+                {
+                    configHost = string.IsNullOrWhiteSpace(init.ConfigHost) ? configHost : init.ConfigHost;
+                    apiPath = string.IsNullOrWhiteSpace(init.ApiPath) ? apiPath : init.ApiPath.Trim().Trim('/');
+                    configId = string.IsNullOrWhiteSpace(init.ConfigId) ? configId : init.ConfigId;
+                    isOverrideSettings = init.OverrideSettings;
+                    log.Add(new JournalEntry("Default values initialized."));
+                }
+                if (isOverrideSettings)
+                {
+                    log.Add(new JournalEntry("Overriding manual parameters."));
+                }
+            }
+            else
+            {
+                log.Add(new JournalEntry(defaults.Status, true));
+            }
+        }
+        catch (Exception ex)
+        {
+            log.Add(new JournalEntry($"Setting default values failed: {ex.Message}", ex));
+        }
+    }
+
+
+    private static LogEntry[] LogEntriesFromJournalEntries(List<JournalEntry> journalEntries)
+    {
+        try
+        {
+            if (journalEntries == null || journalEntries.Count == 0)
+            {
+                return [];
+            }
+            else
+            {
+                return journalEntries.Select(j => new LogEntry(j.IsError ? "ERR" : j.IsWarning ? "WRN" : "INF", j.Message, j.Error, j.TimeStamp)).ToArray();
+            }
+        }
+        catch (Exception ex)
+        {
+            return [new LogEntry("ERR", $"Processing journal entries failed: {ex.Message}", ex)];
         }
     }
 }
+
+public record DefaultValues
+{
+    [JsonPropertyName("configHost")]
+    public string? ConfigHost { get; init; }
+    [JsonPropertyName("configId")]
+    public string? ConfigId { get; init; }
+    [JsonPropertyName("override")]
+    public bool OverrideSettings { get; init; } = false;
+
+    [JsonPropertyName("apiPath")]
+    public string? ApiPath { get; init; }
+
+};

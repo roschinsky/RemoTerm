@@ -10,8 +10,7 @@ I use it purely for convenience, so feel free to adopt it if you like.
 
 ## How this works
 
-_RemoteRM_ is a standalone binary that can be executed by Task Scheduler. It is up to you what's your execution interval - 5 minutes or once per hour.  
-It makes no difference wether it will run on a single host
+_RemoteRM_ is a standalone binary that can be executed by _Task Scheduler_ or direct execution. It is up to you what's your execution interval - 5 minutes or once per hour.  
 
 Set it up as it fits your needs.  
 
@@ -28,13 +27,18 @@ Once executed, _RemoteRM_ will proceed with these steps:
 
 There are two configurations, you'll need to adjust:
 
-### Remote Config
+### Remote Client Config
 
-Is provided via API somewhere in your environment. The expected format looks like this:  
+Configurations are provided via API somewhere in your environment locally or in the cloud. Expected endpoint is `/api/configs/` - you can get the desired config via HTTP-GET by ID like `/api/configs/1`.  
+
+The expected format looks like this:  
 
 ```json
 {
-  "id": "2",
+  "id": "1",
+  "update": false,
+  "update-install": false,
+  "public": true,
   "onlyInLockedMode": true,
   "delayActionsBy": "random120";
   "actions": [
@@ -47,21 +51,24 @@ Is provided via API somewhere in your environment. The expected format looks lik
       "type": "Message",
       "name": "say hi",
       "payload": "Caption...|Hey buddy!|Information"
-    },
-    {
-      "type": "Execute",
-      "name": "run terminal",
-      "payload": "cmd.exe"
     }
   ]
 }
 ```
 
-### Local Config
+### Local Client Config
 
 Can be passed as command line options.
 
 - `-h`, `--config-host`    = Host[:Port] of your config API
-- `-i`, `--config-id`      = Configuration identifier; can be used to select different configurations
+- `-c`, `--config-id`      = Configuration identifier; can be used to select different configurations
 - `-l`, `--operate-locked` = Performs actions only if lock screen is active (can be overridden via API configuration)
 - `-d`, `--debug`          = Application will not exit after processing; a tool window will bring up the execution log
+- `-u`, `--update`         = Update RemoTerm in place from latest GitHub release
+- `-i`, `--install`        = Install RemoTerm for automatic and unattended execution
+- `-t`, `--token`          = Token for API access, if secured
+
+
+## Remote Logging
+
+Execution logs will be pushed to the endpoint `/api/logs/` via POST by ID like `/api/logs/1`.  
