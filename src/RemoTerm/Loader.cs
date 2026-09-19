@@ -31,6 +31,7 @@ public class Loader : Form
             configHost = "localhost:5048";
             configId = "42";
             isDebug = true;
+            MessageBox.Show("Debug build detected. Automatically enabled debug mode with hardcoded default values." + Environment.NewLine + "Please switch to release mode for production use!", "Debug Mode by build enabled...", MessageBoxButtons.OK, MessageBoxIcon.Information);
             log.Add(new JournalEntry("Debug mode enabled by build configuration."));
 #else
             SetDefaults();
@@ -363,12 +364,12 @@ public class Loader : Form
             }
             else
             {
-                return journalEntries.Select(j => new LogEntry(j.IsError ? "ERR" : j.IsWarning ? "WRN" : "INF", j.Message, j.Error, j.TimeStamp)).ToArray();
+                return journalEntries.Select(j => new LogEntry(j.IsError ? "ERR" : j.IsWarning ? "WRN" : "INF", j.Message, (j.Error != null ? $"{j.Error.GetType().Name} - {j.Error.Message}" : null), j.TimeStamp)).ToArray();
             }
         }
         catch (Exception ex)
         {
-            return [new LogEntry("ERR", $"Processing journal entries failed: {ex.Message}", ex)];
+            return [new LogEntry("ERR", $"Processing journal entries failed: {ex.Message}", null)];
         }
     }
 }
