@@ -16,4 +16,8 @@
     <ProjectReference Include="..\RemoTermLib\RemoTermLib.csproj" />
   </ItemGroup>
 
+<ItemGroup>
+  <EmbeddedResource Include="RemoTermSchedTask.xml" />
+</ItemGroup>
+
 </Project>
