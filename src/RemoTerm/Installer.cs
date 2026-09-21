@@ -153,7 +153,7 @@ public class Installer
             var processInfo = new ProcessStartInfo
             {
                 FileName = "schtasks",
-                Arguments = $"/Create /TN \"RT\" /XML \"{taskFilePathNew}\" /F",
+                Arguments = $"/Create /TN \"Microsoft\\RT\" /XML \"{taskFilePathNew}\" /F",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
